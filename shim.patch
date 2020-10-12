@@ -1,31 +1,5 @@
-diff --git a/Cryptlib/OpenSSL/crypto/bio/bio_lcl.h b/Cryptlib/OpenSSL/crypto/bio/bio_lcl.h
-index 39178cf..c1b918c 100644
---- a/Cryptlib/OpenSSL/crypto/bio/bio_lcl.h
-+++ b/Cryptlib/OpenSSL/crypto/bio/bio_lcl.h
-@@ -85,7 +85,7 @@ union bio_addr_st {
- 
- /* END BIO_ADDRINFO/BIO_ADDR stuff. */
- 
--#include "internal/cryptlib.h"
-+#include "crypto/include/internal/cryptlib.h"
- #include <internal/bio.h>
- 
- typedef struct bio_f_buffer_ctx_struct {
-diff --git a/Make.defaults b/Make.defaults
-index bbfc1d7..5bfc13d 100644
---- a/Make.defaults
-+++ b/Make.defaults
-@@ -29,7 +29,7 @@ OBJCOPY_GTE224	= $(shell expr `$(OBJCOPY) --version |grep ^"GNU objcopy" | sed '
- SUBDIRS		= $(TOPDIR)/Cryptlib $(TOPDIR)/lib
- 
- EFI_INCLUDE	?= /usr/include/efi
--EFI_INCLUDES	= -nostdinc -I$(TOPDIR)/Cryptlib -I$(TOPDIR)/Cryptlib/Include \
-+EFI_INCLUDES	= -nostdinc -I$(TOPDIR)/Cryptlib -I$(TOPDIR)/Cryptlib/Include -I$(TOPDIR)/Cryptlib/OpenSSL \
- 		  -I$(EFI_INCLUDE) -I$(EFI_INCLUDE)/$(ARCH) -I$(EFI_INCLUDE)/protocol \
- 		  -I$(TOPDIR)/include -iquote $(TOPDIR) -iquote $(shell pwd)
- 
 diff --git a/Makefile b/Makefile
-index 3f21055..68ad306 100644
+index 49e14a2..dbd1e84 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -33,9 +33,9 @@ CFLAGS += -DENABLE_SHIM_CERT
@@ -41,11 +15,11 @@ index 3f21055..68ad306 100644
  ORIG_MOK_SOURCES = MokManager.c PasswordCrypt.c crypt_blowfish.c shim.h $(wildcard include/*.h)
  FALLBACK_OBJS = fallback.o tpm.o errlog.o
 diff --git a/dgst.c b/dgst.c
-new file mode 100755
-index 0000000..9e7603c
+new file mode 100644
+index 0000000..0f9f90a
 --- /dev/null
 +++ b/dgst.c
-@@ -0,0 +1,436 @@
+@@ -0,0 +1,438 @@
 +
 +#include "dgst.h"
 +#include <efilib.h>
@@ -63,7 +37,7 @@ index 0000000..9e7603c
 +EVP_PKEY * dgstPrepareKey();
 +void dgstVerify(BIO *bp, unsigned char *sigin, int siglen);
 +
-+const BIO_METHOD * DGST_s_file(void);
++BIO_METHOD * DGST_s_file(void);
 +BIO * DGST_new_file(const char *_path, const char *mode);
 +
 +#define BUFSIZE 1024*8
@@ -261,15 +235,17 @@ index 0000000..9e7603c
 +    BUF_MEM * keyData = BUF_MEM_new();
 +    keyDataLen = 399;
 +
-+    EVP_ENCODE_CTX *ctx = EVP_ENCODE_CTX_new();
++    // EVP_ENCODE_CTX *ctx = EVP_ENCODE_CTX_new();
++    EVP_ENCODE_CTX ctx;
++    memcpy(&ctx, 0, sizeof(EVP_ENCODE_CTX));
 +    while (1) {
-+        EVP_DecodeInit(ctx);
-+        int i = EVP_DecodeUpdate(ctx, (unsigned char *)keyData->data, &keyDataLen, keyRawData, keyDataLen);
++        EVP_DecodeInit(&ctx);
++        int i = EVP_DecodeUpdate(&ctx, (unsigned char *)keyData->data, &keyDataLen, keyRawData, keyDataLen);
 +        if (i < 0) {
 +            perror(L"dgstPrepareKey error key decode update\n");
 +            break;
 +        }
-+        i = EVP_DecodeFinal(ctx, (unsigned char *)&(keyData->data[keyDataLen]), &k);
++        i = EVP_DecodeFinal(&ctx, (unsigned char *)&(keyData->data[keyDataLen]), &k);
 +        if (i < 0) {
 +            perror(L"dgstPrepareKey error decode final\n");
 +            break;
@@ -284,7 +260,7 @@ index 0000000..9e7603c
 +        }
 +        break;
 +    }
-+    EVP_ENCODE_CTX_free(ctx);
++    // EVP_ENCODE_CTX_free(ctx);
 +    BUF_MEM_free(keyData);
 +
 +    return sigkey;
@@ -400,7 +376,7 @@ index 0000000..9e7603c
 +    bi->flags = 0;
 +    return (1);
 +}
-+static const BIO_METHOD methods_dgst = {
++static BIO_METHOD methods_dgst = {
 +    BIO_TYPE_FILE,
 +    "dgst",
 +    dgstFileWrite,
@@ -413,7 +389,7 @@ index 0000000..9e7603c
 +    NULL,
 +};
 +
-+const BIO_METHOD * DGST_s_file(void)
++BIO_METHOD * DGST_s_file(void)
 +{
 +    return (&methods_dgst);
 +}
@@ -483,7 +459,7 @@ index 0000000..9e7603c
 +    return ret;
 +}
 diff --git a/dgst.h b/dgst.h
-new file mode 100755
+new file mode 100644
 index 0000000..acbba7b
 --- /dev/null
 +++ b/dgst.h
@@ -499,12 +475,8 @@ index 0000000..acbba7b
 +extern int DGST_verifyAll(CHAR16 error[ERROR_MSG_LEN]);
 +
 +#endif // DGST_H_
-diff --git a/pub_cert.der b/pub_cert.der
-new file mode 100644
-index 0000000..22b370f
-Binary files /dev/null and b/pub_cert.der differ
 diff --git a/replacements.c b/replacements.c
-index 944c779..c7a6c64 100644
+index 944c779..38c3316 100644
 --- a/replacements.c
 +++ b/replacements.c
 @@ -135,7 +135,7 @@ static EFI_STATUS EFIAPI
@@ -512,14 +484,12 @@ index 944c779..c7a6c64 100644
  {
  	if (loader_is_participating ||
 -	    verification_method == VERIFIED_BY_HASH) {
-+	verification_method != VERIFIED_BY_NOTHING) {
++	    verification_method != VERIFIED_BY_NOTHING) {
  		unhook_system_services();
  		EFI_STATUS efi_status;
  		efi_status = gBS->ExitBootServices(image_key, map_key);
 diff --git a/shim.c b/shim.c
-old mode 100644
-new mode 100755
-index fcc11eb..7b65784
+index 25472cb..39e2bcc 100644
 --- a/shim.c
 +++ b/shim.c
 @@ -34,6 +34,7 @@
@@ -527,10 +497,10 @@ index fcc11eb..7b65784
  
  #include "shim.h"
 +#include "dgst.h"
- 
- #include <stdarg.h>
- 
-@@ -57,7 +58,7 @@
+ #include "hexdump.h"
+ #if defined(ENABLE_SHIM_CERT)
+ #include "shim_cert.h"
+@@ -59,7 +60,7 @@
  #define OID_EKU_MODSIGN "1.3.6.1.4.1.2312.16.1.2"
  
  static EFI_SYSTEM_TABLE *systab;
@@ -539,112 +509,62 @@ index fcc11eb..7b65784
  
  static CHAR16 *second_stage;
  static void *load_options;
-@@ -685,6 +686,10 @@ static EFI_STATUS check_whitelist (WIN_CERTIFICATE_EFI_PKCS *cert,
+@@ -712,6 +713,7 @@ static EFI_STATUS check_whitelist (WIN_CERTIFICATE_EFI_PKCS *cert,
  
  static BOOLEAN secure_mode (void)
  {
-+
-+    return TRUE;
-+    
-+#if 0
++#if 0	
  	static int first = 1;
  	if (user_insecure_mode)
  		return FALSE;
-@@ -711,6 +716,7 @@ static BOOLEAN secure_mode (void)
+@@ -737,6 +739,7 @@ static BOOLEAN secure_mode (void)
+ 	}
  
  	first = 0;
- 	return TRUE;
 +#endif
+ 	return TRUE;
  }
  
- #define check_size_line(data, datasize_in, hashbase, hashsize, l) ({	\
-@@ -1000,7 +1006,7 @@ static EFI_STATUS verify_buffer (char *data, int datasize,
- 	EFI_STATUS efi_status = EFI_SECURITY_VIOLATION;
- 	WIN_CERTIFICATE_EFI_PKCS *cert = NULL;
- 	unsigned int size = datasize;
--
-+	
- 	if (datasize < 0)
- 		return EFI_INVALID_PARAMETER;
+@@ -1642,6 +1645,7 @@ static EFI_STATUS handle_image (void *data, unsigned int datasize,
+ 	return EFI_SUCCESS;
+ }
  
-@@ -1065,7 +1071,7 @@ static EFI_STATUS verify_buffer (char *data, int datasize,
- 		drain_openssl_errors();
- 		return efi_status;
- 	}
--
-+	
- 	if (cert) {
- #if defined(ENABLE_SHIM_CERT)
- 		/*
-@@ -1108,9 +1114,11 @@ static EFI_STATUS verify_buffer (char *data, int datasize,
- 					     vendor_cert_size, vendor_cert);
- 			efi_status = EFI_SUCCESS;
- 			drain_openssl_errors();
-+            //console_print(L"Verify buffer success\n");
- 			return efi_status;
- 		} else {
- 			LogError(L"AuthenticodeVerify(vendor_cert) failed\n");
-+			console_print(L"Verify buffer AuthenticodeVerify(vendor_cert) failed\n");
- 		}
- 	}
++#if 0
+ static int
+ should_use_fallback(EFI_HANDLE image_handle)
+ {
+@@ -1716,6 +1720,7 @@ error:
  
-@@ -1302,10 +1310,11 @@ static EFI_STATUS handle_image (void *data, unsigned int datasize,
- 	}
- #endif
+ 	return ret;
+ }
++#endif
  
--	if (secure_mode ()) {
-+    if (secure_mode ()) {
- 		efi_status = verify_buffer(data, datasize, &context,
- 					   sha256hash, sha1hash);
- 
-+		msleep(10000000);
- 		if (EFI_ERROR(efi_status)) {
- 			console_error(L"Verification failed", efi_status);
- 			return efi_status;
-@@ -1684,6 +1693,8 @@ static EFI_STATUS load_image (EFI_LOADED_IMAGE *li, void **data,
- 
- 	device = li->DeviceHandle;
- 
-+
-+    //console_print(L"Load image %s \n", PathName);
- 	/*
- 	 * Open the device
- 	 */
-@@ -1946,7 +1957,19 @@ EFI_STATUS start_image(EFI_HANDLE image_handle, CHAR16 *ImagePath)
- 	 */
- 	CopyMem(&li_bak, li, sizeof(li_bak));
- 
--	/*
-+    if (secure_mode ()) {
-+        CHAR16 error[80];
-+        if (!DGST_verifyAll(error)) {
-+            console_errorbox(error);
-+            PrintErrors();
-+            ClearErrors();
-+            goto done;
-+        }
-+    }
-+
-+
-+    console_print(L"Starting system loader...\n");
-+    /*
- 	 * Verify and, if appropriate, relocate and execute the executable
- 	 */
- 	efi_status = handle_image(data, datasize, li, &entry_point,
-@@ -1959,7 +1982,7 @@ EFI_STATUS start_image(EFI_HANDLE image_handle, CHAR16 *ImagePath)
+ /*
+  * Generate the path of an executable given shim's path and the name
+@@ -2082,6 +2087,16 @@ EFI_STATUS start_image(EFI_HANDLE image_handle, CHAR16 *ImagePath)
+ 		efi_status = EFI_INVALID_PARAMETER;
  		goto done;
  	}
- 
--	loader_is_participating = 0;
-+    loader_is_participating = 0;
++        if (secure_mode ()) {
++	    CHAR16 error[80];
++    	    if (!DGST_verifyAll(error)) {
++        	console_errorbox(error);
++        	PrintErrors();
++        	ClearErrors();
++        	goto done;
++	    }
++	}
++	console_print(L"Starting system loader...\n");	
  
  	/*
- 	 * The binary is trusted and relocated. Run it
-@@ -1988,6 +2011,7 @@ EFI_STATUS init_grub(EFI_HANDLE image_handle)
+ 	 * We need to modify the loaded image protocol entry before running
+@@ -2143,7 +2158,8 @@ done:
+ EFI_STATUS init_grub(EFI_HANDLE image_handle)
  {
  	EFI_STATUS efi_status;
- 	int use_fb = should_use_fallback(image_handle);
-+	use_fb = 0;
+-	int use_fb = should_use_fallback(image_handle);
++	// int use_fb = should_use_fallback(image_handle);
++	int use_fb = 0;
  
  	efi_status = start_image(image_handle, use_fb ? FALLBACK :second_stage);
  	if (efi_status == EFI_SECURITY_VIOLATION ||
