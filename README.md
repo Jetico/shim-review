@@ -1,22 +1,3 @@
-This repo is for review of requests for signing shim.  To create a request for review:
-
-- clone this repo
-- edit the template below
-- add the shim.efi to be signed
-- add build logs
-- add any additional binaries/certificates/hashes that may be needed
-- commit all of that
-- tag it with a tag of the form "myorg-shim-arch-YYYYMMDD"
-- push that to github
-- file an issue at https://github.com/rhboot/shim-review/issues with a link to your branch
-- approval is ready when you have accepted tag
-
-Note that we really only have experience with using grub2 on Linux, so asking
-us to endorse anything else for signing is going to require some convincing on
-your part.
-
-Here's the template:
-
 -------------------------------------------------------------------------------
 What organization or people are asking to have this signed:
 -------------------------------------------------------------------------------
@@ -30,7 +11,9 @@ BCWipe Total WipeOut
 -------------------------------------------------------------------------------
 What's the justification that this really does need to be signed for the whole world to be able to boot it:
 -------------------------------------------------------------------------------
-Jetico products are trusted by government and military agencies, all of the top 10 U.S. defense contractors, many national laboratories, as well as various other enterprises and a wide global base of home and small business users in over 100 countries.
+BCWipe Total WipeOut is full disk erasure solution users worldwide rely on to protect their privacy when donating, repurposing or selling their PCs. For a security-oriented tool like BCWipe Total WipeOut support for Secure Boot is essential.
+
+Jetico, the vendor of BCWipe Total WipeOut has 25+ years of spotless reputation developing data security products. Jetico products are trusted by government and military agencies, all of the top 10 U.S. defense contractors, many national laboratories, as well as various other enterprises and a wide global base of home and small business users
 
 -------------------------------------------------------------------------------
 Who is the primary contact for security updates, etc.
@@ -85,7 +68,9 @@ upstream commit 1957a85b0032a81e6482ca4aab883643b8dae06e applied ?
 Is "ACPI: configfs: Disallow loading ACPI tables when locked down"
 upstream commit 75b0cea7bf307f362057cc778efe89af4c615354 applied ?
 -------------------------------------------------------------------------------
-Yes both times
+Yes, our boot chain of trust includes linux kernel upstream commit 1957a85b0032a81e6482ca4aab883643b8dae06e.
+
+Yes, it also includes upstream commit 75b0cea7bf307f362057cc778efe89af4c615354
 
 -------------------------------------------------------------------------------
 If you use vendor_db functionality of providing multiple certificates and/or
@@ -93,13 +78,13 @@ hashes please briefly describe your certificate setup. If there are whitelisted 
 please provide exact binaries for which hashes are created via file sharing service,
 available in public with anonymous access for verification
 -------------------------------------------------------------------------------
--
+No we are not using it.
 
 -------------------------------------------------------------------------------
 What OS and toolchain must we use to reproduce this build?  Include where to find it, etc.  We're going to try to reproduce your build as close as possible to verify that it's really a build of the source tree you tell us it is, so these need to be fairly thorough. At the very least include the specific versions of gcc, binutils, and gnu-efi which were used, and where to find those binaries.
 If possible, provide a Dockerfile that rebuilds the shim.
 -------------------------------------------------------------------------------
-Dockerfile is provided
+Our build based on gcc 10.2.1 provided by Fedora 32, Dockerfile is included
 
 -------------------------------------------------------------------------------
 Which files in this repo are the logs for your build?   This should include logs for creating the buildroots, applying patches, doing the build, creating the archives, etc.
@@ -109,4 +94,4 @@ https://github.com/Jetico/shim-review/blob/master/shim_build.log
 -------------------------------------------------------------------------------
 Add any additional information you think we may need to validate this shim
 -------------------------------------------------------------------------------
-Our patch to shim 15.2 uses OpenSSL ability to create and verify digest of a file which allows to sign any file involved into boot process, including GRUB, Linux kernel and others. This guaratie that no file will be substituted by intruder.
+Our patch to shim 15.2 utilizes the OpenSSL's ability to create and verify files' digests. That allows us to sign every file that is a part of the boot process, including GRUB, Linux kernel, etc and to verify all the signatures. Thus, if a file is replaced by an attacker, it will be detected.
